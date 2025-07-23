@@ -35,75 +35,54 @@ function normalizeArabic(text) {
 
 let processedStudentsData = [];
 
-// Check if we have cached data
-function checkCache() {
-    const cached = localStorage.getItem(CACHE_KEY);
-    if (!cached) return null;
-    
-    try {
-        const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < CACHE_EXPIRY) {
-            return data;
-        }
-    } catch (e) {
-        console.error('Cache parse error', e);
-    }
-    return null;
-}
-
-// Save data to cache
-function saveToCache(data) {
-    try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify({
-            data,
-            timestamp: Date.now()
-        }));
-    } catch (e) {
-        console.error('Failed to save cache', e);
-        // If localStorage is full, clear old cache
-        localStorage.removeItem(CACHE_KEY);
+function hideSplashScreen() {
+    const splash = document.getElementById('splashScreen');
+    if (splash) {
+        splash.classList.add('hidden');
+        // Remove from DOM after animation completes
+        setTimeout(() => splash.remove(), 500);
     }
 }
 
-// Load data with cache-first strategy
-async function loadData() {
-    showLoading(true);
-    
-    // Try cache first
-    const cachedData = checkCache();
-    if (cachedData) {
-        processedStudentsData = cachedData;
-        console.log('Loaded from cache');
-        showLoading(false);
-        return;
-    }
-    
-    // Fetch fresh data
-    try {
-        const response = await fetch('data/results.json');
+// Minimum splash screen display time (1.5 seconds)
+const MIN_SPLASH_TIME = 1500;
+const loadStartTime = Date.now();
+
+// Load data with splash screen
+fetch('data/results.json')
+    .then(response => {
         if (!response.ok) throw new Error('Network response was not ok');
+        return response.json();
+    })
+    .then(data => {
+        if (!Array.isArray(data)) {
+            throw new Error('Invalid data format: expected array');
+        }
         
-        const data = await response.json();
-        if (!Array.isArray(data)) throw new Error('Invalid data format');
-        
-        // Process and cache
         processedStudentsData = data.map(student => ({
             ...student,
             normalizedName: normalizeArabic(student.arabic_name || ''),
             normalizedSeatingNo: student.seating_no?.toString().toLowerCase() || ''
         }));
         
-        saveToCache(processedStudentsData);
-        console.log('Loaded from network and cached');
-    } catch (error) {
+        console.log('Data loaded and processed successfully');
+        
+        // Calculate remaining time to meet minimum splash duration
+        const loadTime = Date.now() - loadStartTime;
+        const remainingTime = Math.max(0, MIN_SPLASH_TIME - loadTime);
+        
+        setTimeout(hideSplashScreen, remainingTime);
+    })
+    .catch(error => {
         console.error('Error loading data:', error);
         document.getElementById('resultsContainer').innerHTML = 
             '<div class="no-results">حدث خطأ في تحميل البيانات</div>';
-    } finally {
-        showLoading(false);
-    }
-}
-
+        
+        // Hide splash immediately on error (after minimum duration)
+        const loadTime = Date.now() - loadStartTime;
+        const remainingTime = Math.max(0, MIN_SPLASH_TIME - loadTime);
+        setTimeout(hideSplashScreen, remainingTime);
+    });
 // Debounce search to prevent rapid successive searches
 let searchDebounceTimer;
 const DEBOUNCE_DELAY = 300;
@@ -188,14 +167,24 @@ searchInput.addEventListener('keypress', function(e) {
         performSearch();
     }
 });
-window.addEventListener('DOMContentLoaded', () => {
+function showSplashScreen(show) {
+    const splash = document.getElementById('splashScreen');
+    if (splash) {
+        if (show) {
+            splash.style.display = 'flex';
+            splash.style.opacity = '1';
+        } else {
+            splash.style.opacity = '0';
             setTimeout(() => {
-                const splash = document.getElementById('splashScreen');
-                splash.style.opacity = '0';
-                setTimeout(() => {
-                    splash.style.display = 'none';
-                }, 500);
-            }, 1500); // Minimum show time
+                splash.style.display = 'none';
+            }, 500); // Match the CSS transition time
+        }
+    }
+}
+document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+             setTimeout(() => {
+    }, 1500);
         });
 
 // Make performSearch available globally
