@@ -200,3 +200,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // Make performSearch available globally
 window.performSearch = performSearch;
+    splash.style.display = 'none';
+                }, 500);
+            }, 1500); // Minimum show time
+        });
+
+// Make performSearch available globally
+window.performSearch = performSearch;
